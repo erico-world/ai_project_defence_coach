@@ -126,7 +126,7 @@ const ProjectDefenceForm = () => {
 
       if (data.success) {
         toast.success("Defence session created successfully!");
-        router.push("/");
+        router.push(`/interview/${data.interviewId}`);
       } else {
         toast.error("Failed to create defence session");
       }
