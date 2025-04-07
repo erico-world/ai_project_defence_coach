@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer, defenceInterviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
+import { toast } from "sonner";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -38,14 +39,17 @@ const Agent = ({
 
   useEffect(() => {
     const onCallStart = () => {
+      console.log("Call started successfully");
       setCallStatus(CallStatus.ACTIVE);
     };
 
     const onCallEnd = () => {
+      console.log("Call ended");
       setCallStatus(CallStatus.FINISHED);
     };
 
     const onMessage = (message: Message) => {
+      console.log("Message received:", message);
       if (message.type === "transcript" && message.transcriptType === "final") {
         const newMessage = { role: message.role, content: message.transcript };
         setMessages((prev) => [...prev, newMessage]);
@@ -53,17 +57,28 @@ const Agent = ({
     };
 
     const onSpeechStart = () => {
-      console.log("speech start");
+      console.log("Speech started");
       setIsSpeaking(true);
     };
 
     const onSpeechEnd = () => {
-      console.log("speech end");
+      console.log("Speech ended");
       setIsSpeaking(false);
     };
 
     const onError = (error: Error) => {
-      console.log("Error:", error);
+      console.error("VAPI Error:", error);
+      toast.error(`VAPI Error: ${error.message || "Unknown error"}`);
+
+      // Add error to console with stack trace
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+
+      // Reset call status if we get an error
+      setCallStatus(CallStatus.INACTIVE);
     };
 
     vapi.on("call-start", onCallStart);
@@ -126,45 +141,69 @@ const Agent = ({
   ]);
 
   const handleCall = async () => {
-    setCallStatus(CallStatus.CONNECTING);
+    try {
+      console.log("Starting call...");
+      setCallStatus(CallStatus.CONNECTING);
 
-    if (type === "generate") {
-      await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
-        variableValues: {
-          username: userName,
-          userid: userId,
-        },
-      });
-    } else {
-      let formattedQuestions = "";
-      if (questions) {
-        formattedQuestions = questions
-          .map((question) => `- ${question}`)
-          .join("\n");
-      }
-
-      // Determine if this is a project defence
-      const isDefence = projectDetails !== undefined;
-
-      if (isDefence) {
-        await vapi.start(defenceInterviewer, {
+      if (type === "generate") {
+        console.log(
+          "Starting generate workflow with ID:",
+          process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID
+        );
+        await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
           variableValues: {
-            questions: formattedQuestions,
-            projectTitle: projectDetails?.projectTitle || "",
-            academicLevel: projectDetails?.academicLevel || "undergraduate",
+            username: userName,
+            userid: userId,
           },
         });
       } else {
-        await vapi.start(interviewer, {
-          variableValues: {
+        let formattedQuestions = "";
+        if (questions) {
+          formattedQuestions = questions
+            .map((question) => `- ${question}`)
+            .join("\n");
+        }
+
+        // Determine if this is a project defence
+        const isDefence = projectDetails !== undefined;
+        console.log(
+          "Starting call for type:",
+          isDefence ? "defence" : "interview"
+        );
+
+        if (isDefence) {
+          console.log("Starting defence interview with variables:", {
             questions: formattedQuestions,
-          },
-        });
+            projectTitle: projectDetails?.projectTitle,
+            academicLevel: projectDetails?.academicLevel,
+          });
+
+          await vapi.start(defenceInterviewer, {
+            variableValues: {
+              questions: formattedQuestions,
+              projectTitle: projectDetails?.projectTitle || "",
+              academicLevel: projectDetails?.academicLevel || "undergraduate",
+            },
+          });
+        } else {
+          console.log("Starting regular interview with questions");
+
+          await vapi.start(interviewer, {
+            variableValues: {
+              questions: formattedQuestions,
+            },
+          });
+        }
       }
+    } catch (error) {
+      console.error("Error starting call:", error);
+      toast.error("Failed to start the interview. Please try again.");
+      setCallStatus(CallStatus.INACTIVE);
     }
   };
 
   const handleDisconnect = () => {
+    console.log("Disconnecting call");
     setCallStatus(CallStatus.FINISHED);
     vapi.stop();
   };
@@ -230,7 +269,9 @@ const Agent = ({
 
             <span className="relative">
               {callStatus === "INACTIVE" || callStatus === "FINISHED"
-                ? "Start Defence"
+                ? projectDetails
+                  ? "Start Defence"
+                  : "Start Interview"
                 : ". . ."}
             </span>
           </button>

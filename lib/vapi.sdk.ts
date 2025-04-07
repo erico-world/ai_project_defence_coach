@@ -14,9 +14,7 @@ const initializeVapi = () => {
     }
 
     // Initialize VAPI with the token
-    const vapiInstance = new Vapi(token, {
-      debug: true, // Enable debugging for development
-    });
+    const vapiInstance = new Vapi(token);
 
     console.log("VAPI SDK initialized successfully");
 
