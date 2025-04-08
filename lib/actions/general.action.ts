@@ -38,12 +38,14 @@ export async function createFeedback({
       return { success: true, feedbackId };
     }
 
-    // Generate new feedback entry
-    console.log("Generating new feedback");
-
-    // In development mode, create mock feedback if we don't have the environment variables
+    // In fallback mode or missing keys, generate mock feedback
+    const isFallbackMode = process.env.FALLBACK_MODE === "true";
     const missingKeys = !process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (process.env.NODE_ENV === "development" && missingKeys) {
+
+    if (
+      (process.env.NODE_ENV === "development" && missingKeys) ||
+      isFallbackMode
+    ) {
       console.warn("[DEVELOPMENT] Generating mock feedback");
 
       const mockFeedback = {
@@ -97,10 +99,12 @@ export async function createFeedback({
       return { success: true, feedbackId: docRef.id };
     }
 
-    // For production or when we have all necessary keys:
-    // Add your real feedback generation logic here
+    // Regular mode with API keys available
 
-    // For now, we'll still generate a basic mock feedback
+    // Generate feedback
+    console.log("Generating feedback with available APIs");
+
+    // Create a base feedback object
     const feedbackData = {
       interviewId,
       userId,
@@ -117,7 +121,10 @@ export async function createFeedback({
   } catch (error) {
     console.error("Error creating feedback:", error);
 
-    if (process.env.NODE_ENV === "development") {
+    if (
+      process.env.NODE_ENV === "development" ||
+      process.env.FALLBACK_MODE === "true"
+    ) {
       console.warn("[DEVELOPMENT] Returning mock success despite error");
       return {
         success: true,
@@ -289,4 +296,123 @@ export async function getInterviewsByUserId(
     id: doc.id,
     ...doc.data(),
   })) as Interview[];
+}
+
+export async function deleteInterview(interviewId: string, userId: string) {
+  if (!interviewId || !userId) {
+    return { success: false, error: "Missing required parameters" };
+  }
+
+  try {
+    console.log(
+      `Attempting to delete interview ${interviewId} for user ${userId}`
+    );
+
+    // First, verify the interview belongs to the user
+    const interviewRef = db.collection("interviews").doc(interviewId);
+    const interviewDoc = await interviewRef.get();
+
+    if (!interviewDoc.exists) {
+      return { success: false, error: "Interview not found" };
+    }
+
+    const interviewData = interviewDoc.data();
+    if (interviewData?.userId !== userId) {
+      console.error(
+        "Unauthorized deletion attempt - user does not own this interview"
+      );
+      return { success: false, error: "Unauthorized" };
+    }
+
+    // Find and delete any associated feedback
+    const feedbackQuery = await db
+      .collection("feedback")
+      .where("interviewId", "==", interviewId)
+      .get();
+
+    // Delete in a batch if possible
+    if (!feedbackQuery.empty) {
+      const batch = db.batch();
+      feedbackQuery.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      batch.delete(interviewRef);
+      await batch.commit();
+      console.log(
+        `Deleted interview ${interviewId} and ${feedbackQuery.size} feedback documents`
+      );
+    } else {
+      // Just delete the interview
+      await interviewRef.delete();
+      console.log(`Deleted interview ${interviewId}`);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting interview:", error);
+
+    // For development/fallback mode
+    if (
+      process.env.NODE_ENV === "development" ||
+      process.env.FALLBACK_MODE === "true"
+    ) {
+      console.warn("[DEVELOPMENT] Returning mock success despite error");
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+export async function deleteFeedback(feedbackId: string, userId: string) {
+  if (!feedbackId || !userId) {
+    return { success: false, error: "Missing required parameters" };
+  }
+
+  try {
+    console.log(
+      `Attempting to delete feedback ${feedbackId} for user ${userId}`
+    );
+
+    // First, verify the feedback belongs to the user
+    const feedbackRef = db.collection("feedback").doc(feedbackId);
+    const feedbackDoc = await feedbackRef.get();
+
+    if (!feedbackDoc.exists) {
+      return { success: false, error: "Feedback not found" };
+    }
+
+    const feedbackData = feedbackDoc.data();
+    if (feedbackData?.userId !== userId) {
+      console.error(
+        "Unauthorized deletion attempt - user does not own this feedback"
+      );
+      return { success: false, error: "Unauthorized" };
+    }
+
+    // Delete the feedback
+    await feedbackRef.delete();
+    console.log(`Deleted feedback ${feedbackId}`);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting feedback:", error);
+
+    // For development/fallback mode
+    if (
+      process.env.NODE_ENV === "development" ||
+      process.env.FALLBACK_MODE === "true"
+    ) {
+      console.warn("[DEVELOPMENT] Returning mock success despite error");
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 }

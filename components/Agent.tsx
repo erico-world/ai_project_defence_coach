@@ -192,23 +192,39 @@ const Agent = ({
     const handleGenerateFeedback = async (messages: SavedMessage[]) => {
       console.log("handleGenerateFeedback");
 
-      const { success, feedbackId: id } = await createFeedback({
-        interviewId: interviewId!,
-        userId: userId!,
-        transcript: messages,
-        feedbackId,
-        projectDetails,
-      });
+      try {
+        const { success, feedbackId: id } = await createFeedback({
+          interviewId: interviewId!,
+          userId: userId!,
+          transcript: messages,
+          feedbackId,
+          projectDetails,
+        });
 
-      if (success && id) {
-        router.push(`/interview/${interviewId}/feedback`);
-      } else {
-        console.log("Error saving feedback");
+        if (success && id) {
+          console.log(
+            `Feedback created successfully with ID ${id}, redirecting to feedback page`
+          );
+          toast.success("Defence session completed! Viewing feedback...");
+
+          // Add a delay to ensure the toast is seen
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // Redirect to feedback page
+          router.push(`/interview/${interviewId}/feedback`);
+        } else {
+          console.log("Error saving feedback, redirecting to home");
+          toast.error("Could not generate feedback. Redirecting to home...");
+          router.push("/");
+        }
+      } catch (error) {
+        console.error("Error in handleGenerateFeedback:", error);
+        toast.error("An error occurred while generating feedback");
         router.push("/");
       }
     };
 
-    if (callStatus === CallStatus.FINISHED) {
+    if (callStatus === CallStatus.FINISHED && messages.length > 0) {
       handleGenerateFeedback(messages);
     }
   }, [
@@ -221,6 +237,22 @@ const Agent = ({
     userId,
     projectDetails,
   ]);
+
+  // Auto-start call when component mounts (only in client)
+  useEffect(() => {
+    if (!isClient || !vapiRef.current) return;
+
+    // Check if we have a valid VAPI instance and the call is inactive
+    if (vapiRef.current && callStatus === CallStatus.INACTIVE) {
+      // Start call after a short delay to ensure UI is loaded
+      const timer = setTimeout(() => {
+        console.log("Auto-starting defence call");
+        handleCall();
+      }, 1500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isClient, vapiRef.current, callStatus]);
 
   const handleCall = async () => {
     if (!isClient) return;

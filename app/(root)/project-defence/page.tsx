@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import ProjectDefenceForm from "@/components/ProjectDefenceForm";
 import { isAuthenticated } from "@/lib/actions/auth.action";
+import ClientErrorBoundary from "@/components/ClientErrorHandler";
 
 export default async function ProjectDefencePage() {
   const isUserAuthenticated = await isAuthenticated();
@@ -10,7 +11,9 @@ export default async function ProjectDefencePage() {
 
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <ProjectDefenceForm />
+      <ClientErrorBoundary>
+        <ProjectDefenceForm />
+      </ClientErrorBoundary>
     </Suspense>
   );
 }

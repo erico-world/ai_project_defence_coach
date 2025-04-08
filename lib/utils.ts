@@ -44,10 +44,6 @@ export const getTechLogos = async (techArray: string[]) => {
 // Project defense covers - used for academic projects
 const projectCovers = [
   "/robot.png", // Fallback image that exists in the public directory
-  "/academic/research.png",
-  "/academic/thesis.png",
-  "/academic/computer-science.png",
-  "/academic/engineering.png",
 ];
 
 export const generateProjectCover = (technology: string): string => {

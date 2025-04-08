@@ -9,6 +9,7 @@ import {
 } from "@/lib/actions/general.action";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/actions/auth.action";
+import DeleteFeedback from "@/components/DeleteFeedback";
 
 const Feedback = async ({ params }: RouteParams) => {
   const { id } = await params;
@@ -149,6 +150,12 @@ const Feedback = async ({ params }: RouteParams) => {
             </p>
           </Link>
         </Button>
+
+        <DeleteFeedback
+          feedbackId={feedback.id}
+          userId={user.id}
+          interviewId={id}
+        />
 
         <Button className="btn-primary flex-1">
           <Link

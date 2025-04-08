@@ -37,61 +37,61 @@ const vapiVars = ["NEXT_PUBLIC_VAPI_WEB_TOKEN", "NEXT_PUBLIC_VAPI_WORKFLOW_ID"];
 // Check Google AI configuration
 const googleVars = ["GOOGLE_GENERATIVE_AI_API_KEY"];
 
-// All required variables
-const allVars = [
-  ...firebaseVars,
-  ...vapiVars,
-  ...googleVars,
-  ...firebaseAdminVars,
-];
-
 // Generate a sample .env.local file
 if (shouldGenerateEnv) {
-  const fs = require("fs");
-  const path = require("path");
+  // Use dynamic import for fs and path
+  const generateEnvFile = async () => {
+    const { promises: fs } = await import("fs");
+    const path = await import("path");
 
-  let sampleEnv = "# AI Project Defence Coach Environment Variables\n\n";
+    let sampleEnv = "# AI Project Defence Coach Environment Variables\n\n";
 
-  sampleEnv += "# Firebase Client Configuration\n";
-  firebaseVars.forEach((varName) => {
-    sampleEnv += `${varName}="your-${varName
-      .toLowerCase()
-      .replace(/_/g, "-")}-here"\n`;
-  });
-
-  sampleEnv += "\n# Firebase Admin Configuration\n";
-  firebaseAdminVars.forEach((varName) => {
-    if (varName === "FIREBASE_PRIVATE_KEY") {
-      sampleEnv += `${varName}="-----BEGIN PRIVATE KEY-----\\nYOUR_PRIVATE_KEY_CONTENT_HERE\\n-----END PRIVATE KEY-----\\n"\n`;
-    } else {
+    sampleEnv += "# Firebase Client Configuration\n";
+    firebaseVars.forEach((varName) => {
       sampleEnv += `${varName}="your-${varName
         .toLowerCase()
         .replace(/_/g, "-")}-here"\n`;
-    }
+    });
+
+    sampleEnv += "\n# Firebase Admin Configuration\n";
+    firebaseAdminVars.forEach((varName) => {
+      if (varName === "FIREBASE_PRIVATE_KEY") {
+        sampleEnv += `${varName}="-----BEGIN PRIVATE KEY-----\\nYOUR_PRIVATE_KEY_CONTENT_HERE\\n-----END PRIVATE KEY-----\\n"\n`;
+      } else {
+        sampleEnv += `${varName}="your-${varName
+          .toLowerCase()
+          .replace(/_/g, "-")}-here"\n`;
+      }
+    });
+
+    sampleEnv += "\n# VAPI Configuration\n";
+    vapiVars.forEach((varName) => {
+      sampleEnv += `${varName}="your-${varName
+        .toLowerCase()
+        .replace(/_/g, "-")}-here"\n`;
+    });
+
+    sampleEnv += "\n# Google AI Configuration\n";
+    googleVars.forEach((varName) => {
+      sampleEnv += `${varName}="your-${varName
+        .toLowerCase()
+        .replace(/_/g, "-")}-here"\n`;
+    });
+
+    const envPath = path.join(process.cwd(), ".env.local.sample");
+    await fs.writeFile(envPath, sampleEnv);
+
+    console.log(`\n✅ Sample environment file created at: ${envPath}`);
+    console.log(
+      "Rename this file to .env.local and fill in your actual credentials\n"
+    );
+    process.exit(0);
+  };
+
+  generateEnvFile().catch((err) => {
+    console.error("Error generating env file:", err);
+    process.exit(1);
   });
-
-  sampleEnv += "\n# VAPI Configuration\n";
-  vapiVars.forEach((varName) => {
-    sampleEnv += `${varName}="your-${varName
-      .toLowerCase()
-      .replace(/_/g, "-")}-here"\n`;
-  });
-
-  sampleEnv += "\n# Google AI Configuration\n";
-  googleVars.forEach((varName) => {
-    sampleEnv += `${varName}="your-${varName
-      .toLowerCase()
-      .replace(/_/g, "-")}-here"\n`;
-  });
-
-  const envPath = path.join(process.cwd(), ".env.local.sample");
-  fs.writeFileSync(envPath, sampleEnv);
-
-  console.log(`\n✅ Sample environment file created at: ${envPath}`);
-  console.log(
-    "Rename this file to .env.local and fill in your actual credentials\n"
-  );
-  process.exit(0);
 }
 
 // Check if variables are defined in the environment

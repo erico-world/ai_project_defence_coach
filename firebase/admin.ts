@@ -2,6 +2,11 @@ import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
+interface MockFirestoreData {
+  id: string;
+  [key: string]: any;
+}
+
 // Initialize Firebase Admin SDK
 function initFirebaseAdmin() {
   try {
@@ -53,10 +58,24 @@ function initFirebaseAdmin() {
         "Returning fallback Firebase Admin services for development"
       );
 
+      // Define type for our mock firestore
+      type MockFirestore = {
+        collection: (name: string) => {
+          add: (data: Record<string, unknown>) => Promise<{ id: string }>;
+          doc: (id: string) => {
+            get: () => Promise<{
+              exists: boolean;
+              data: () => MockFirestoreData;
+            }>;
+            set: (data: Record<string, unknown>) => Promise<void>;
+          };
+        };
+      };
+
       // Basic fallback implementation of Firestore
-      const mockDb = {
+      const mockDb: MockFirestore = {
         collection: (name: string) => ({
-          add: async (data: any) => {
+          add: async (data: Record<string, unknown>) => {
             console.log(`[MOCK FIRESTORE] Adding to ${name}:`, data);
             return { id: `mock-${Date.now()}` };
           },
@@ -65,16 +84,19 @@ function initFirebaseAdmin() {
               exists: true,
               data: () => ({ id, ...data }),
             }),
-            set: async (data: any) => {
+            set: async (data: Record<string, unknown>) => {
               console.log(`[MOCK FIRESTORE] Setting ${name}/${id}:`, data);
             },
           }),
         }),
       };
 
+      // We need a mock variable for the document data in the doc().get().data() function
+      const data: MockFirestoreData = { id: "mock-id" };
+
       return {
-        auth: {} as any,
-        db: mockDb as any,
+        auth: {} as ReturnType<typeof getAuth>,
+        db: mockDb as unknown as ReturnType<typeof getFirestore>,
       };
     }
 

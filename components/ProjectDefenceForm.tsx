@@ -110,8 +110,8 @@ const ProjectDefenceForm = () => {
         try {
           fileData = await uploadFileToStorage(projectFile);
           console.log("File uploaded successfully:", fileData);
-        } catch (fileError) {
-          console.error("File upload failed:", fileError);
+        } catch (uploadError) {
+          console.error("File upload failed:", uploadError);
           toast.error("Failed to upload file. Continuing without file.");
           // Continue with submission without file
         }
@@ -141,14 +141,13 @@ const ProjectDefenceForm = () => {
       let responseData;
       try {
         responseData = await response.json();
+        console.log("API response received:", responseData);
       } catch (error) {
         // If JSON parsing fails, get the text response
         const errorText = await response.text();
-        console.error("Failed to parse response as JSON:", errorText);
-        throw new Error(`Invalid response: ${errorText}`);
+        console.error("Failed to parse response as JSON:", error);
+        throw new Error(`Invalid API response: ${errorText}`);
       }
-
-      console.log("API response received:", responseData);
 
       if (!response.ok) {
         console.error(
@@ -183,11 +182,11 @@ const ProjectDefenceForm = () => {
         const redirectUrl = `/interview/${responseData.interviewId}`;
         console.log("Redirecting to:", redirectUrl);
 
-        // Use router.push with a callback to confirm navigation
+        // Use try-catch for navigation
         try {
-          await router.push(redirectUrl);
+          router.push(redirectUrl);
           console.log("Navigation successful");
-        } catch (navError: unknown) {
+        } catch (navError) {
           console.error("Navigation failed:", navError);
           // Fallback direct navigation
           window.location.href = redirectUrl;

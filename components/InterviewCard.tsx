@@ -1,45 +1,56 @@
+"use client";
+
 import dayjs from "dayjs";
 import Link from "next/link";
 import Image from "next/image";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Button } from "./ui/button";
 import DisplayTechIcons from "./DisplayTechIcons";
 
 import { cn, generateProjectCover } from "@/lib/utils";
-import {
-  getFeedbackByInterviewId,
-  getInterviewById,
-} from "@/lib/actions/general.action";
+import { deleteInterview } from "@/lib/actions/general.action";
 
-const InterviewCard = async ({
+interface FeedbackData {
+  id?: string;
+  totalScore?: number;
+  finalAssessment?: string;
+  createdAt?: string;
+}
+
+const InterviewCard = ({
   interviewId,
   userId,
   role,
   techstack,
   createdAt,
-  questionCount,
-}: Omit<InterviewCardProps, "type">) => {
-  const feedback =
-    userId && interviewId
-      ? await getFeedbackByInterviewId({
-          interviewId,
-          userId,
-        })
-      : null;
-
-  // If we don't have question count but have an interview ID, try to fetch it
-  let displayQuestionCount = questionCount;
-  if (!displayQuestionCount && interviewId) {
-    const interview = await getInterviewById(interviewId);
-    if (interview && interview.questionCount) {
-      displayQuestionCount = interview.questionCount;
-    }
-  }
+  displayQuestionCount,
+  feedback,
+}: Omit<InterviewCardProps, "type" | "questionCount"> & {
+  feedback?: FeedbackData;
+  displayQuestionCount?: number;
+}) => {
+  const router = useRouter();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   // For academic defense sessions only
   const normalizedType = "Academic Defence";
-
   const badgeColor = "bg-accent-400"; // Special color for defence sessions
+
+  // If we don't have question count but have an interview ID, fetch it on mount
+  // This code is commented out because we should fetch this server-side
+  // useEffect(() => {
+  //   if (!displayQuestionCount && interviewId) {
+  //     getInterviewById(interviewId).then(interview => {
+  //       if (interview && interview.questionCount) {
+  //         setLocalQuestionCount(interview.questionCount);
+  //       }
+  //     });
+  //   }
+  // }, []);
 
   // Format date from server value, not client-side calculation
   let formattedDate = "Recent";
@@ -53,10 +64,93 @@ const InterviewCard = async ({
   const coverImage =
     techstack?.length > 0 ? generateProjectCover(techstack[0]) : "/robot.png";
 
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowConfirmation(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!interviewId || !userId) {
+      toast.error("Cannot delete: Missing interview or user information");
+      setShowConfirmation(false);
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteInterview(interviewId, userId);
+      if (result.success) {
+        toast.success("Defence session deleted successfully");
+        // Refresh the page to update the UI
+        router.refresh();
+      } else {
+        toast.error(result.error || "Failed to delete defence session");
+      }
+    } catch (error) {
+      console.error("Error deleting interview:", error);
+      toast.error("An error occurred while deleting");
+    } finally {
+      setIsDeleting(false);
+      setShowConfirmation(false);
+    }
+  };
+
+  const handleCancelDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowConfirmation(false);
+  };
+
   return (
-    <div className="card-border w-[360px] max-sm:w-full min-h-96">
+    <div className="card-border w-[360px] max-sm:w-full min-h-96 relative">
+      {showConfirmation && (
+        <div className="absolute inset-0 bg-black bg-opacity-50 z-10 flex items-center justify-center rounded-xl">
+          <div className="bg-gray-800 p-4 rounded-lg max-w-[280px]">
+            <h4 className="text-lg font-semibold mb-2">Confirm Deletion</h4>
+            <p className="mb-4">
+              Are you sure you want to delete this defence session? This action
+              cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={handleCancelDelete}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card-interview">
         <div>
+          {/* Delete Button */}
+          <div className="absolute top-0 left-0 m-2">
+            <Button
+              variant="ghost"
+              className="p-2 hover:bg-red-900/20 rounded-full"
+              onClick={handleDeleteClick}
+            >
+              <Image
+                src="/trash.svg"
+                width={18}
+                height={18}
+                alt="delete"
+                className="opacity-70 hover:opacity-100"
+              />
+            </Button>
+          </div>
+
           {/* Type Badge */}
           <div
             className={cn(

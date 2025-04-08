@@ -8,12 +8,35 @@ import { getCurrentUser } from "@/lib/actions/auth.action";
 import {
   getInterviewsByUserId,
   getLatestInterviews,
+  getFeedbackByInterviewId,
 } from "@/lib/actions/general.action";
 
+interface User {
+  id: string;
+  name: string;
+}
+
+interface Interview {
+  id: string;
+  projectTitle?: string;
+  technologiesUsed?: string[];
+  createdAt: string;
+  questionCount?: number;
+  type: string;
+}
+
+interface Feedback {
+  id: string;
+  totalScore?: number;
+  finalAssessment?: string;
+  createdAt?: string;
+}
+
 async function Home() {
-  let user = null;
-  let userInterviews = null;
-  let allInterviews = null;
+  let user: User | null = null;
+  let userInterviews: Interview[] | null = null;
+  let allInterviews: Interview[] | null = null;
+  const feedbackMap = new Map<string, Feedback>();
 
   try {
     // Try to get the current user, handling potential network errors
@@ -30,6 +53,25 @@ async function Home() {
       // Extract successful results
       if (results[0].status === "fulfilled") {
         userInterviews = results[0].value;
+
+        // Prefetch feedback for user interviews
+        if (userInterviews && userInterviews.length > 0) {
+          const feedbackPromises = userInterviews.map((interview) =>
+            getFeedbackByInterviewId({
+              interviewId: interview.id,
+              userId: user!.id,
+            })
+          );
+
+          const feedbackResults = await Promise.allSettled(feedbackPromises);
+
+          // Create a map of interviewId -> feedback
+          feedbackResults.forEach((result, index) => {
+            if (result.status === "fulfilled" && result.value) {
+              feedbackMap.set(userInterviews![index].id, result.value);
+            }
+          });
+        }
       }
 
       if (results[1].status === "fulfilled") {
@@ -83,10 +125,10 @@ async function Home() {
                   userId={user?.id}
                   interviewId={interview.id}
                   role={interview.projectTitle || "Project"}
-                  type={interview.type}
                   techstack={interview.technologiesUsed || []}
                   createdAt={interview.createdAt}
-                  questionCount={interview.questionCount}
+                  displayQuestionCount={interview.questionCount}
+                  feedback={feedbackMap.get(interview.id)}
                 />
               ))
           ) : (
@@ -108,10 +150,10 @@ async function Home() {
                   userId={user?.id}
                   interviewId={interview.id}
                   role={interview.projectTitle || "Project"}
-                  type={interview.type}
                   techstack={interview.technologiesUsed || []}
                   createdAt={interview.createdAt}
-                  questionCount={interview.questionCount}
+                  displayQuestionCount={interview.questionCount}
+                  feedback={feedbackMap.get(interview.id)}
                 />
               ))
           ) : (
