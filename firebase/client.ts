@@ -18,9 +18,22 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-// const analytics = getAnalytics(app);
+// Initialize Firebase only on client side
+let firebaseApp;
+let firebaseAuth;
+let firebaseDb;
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+if (typeof window !== "undefined") {
+  // Initialize Firebase
+  firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  firebaseAuth = getAuth(firebaseApp);
+  firebaseDb = getFirestore(firebaseApp);
+
+  // Add some debugging
+  console.log("Firebase initialized successfully on client side");
+}
+
+// Export the Firebase app instance and services
+export const app = firebaseApp;
+export const auth = firebaseAuth;
+export const db = firebaseDb;

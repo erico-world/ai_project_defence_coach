@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Button } from "./ui/button";
 import DisplayTechIcons from "./DisplayTechIcons";
 
-import { cn, getRandomInterviewCover, generateProjectCover } from "@/lib/utils";
+import { cn, generateProjectCover } from "@/lib/utils";
 import {
   getFeedbackByInterviewId,
   getInterviewById,
@@ -15,11 +15,10 @@ const InterviewCard = async ({
   interviewId,
   userId,
   role,
-  type,
   techstack,
   createdAt,
   questionCount,
-}: InterviewCardProps) => {
+}: Omit<InterviewCardProps, "type">) => {
   const feedback =
     userId && interviewId
       ? await getFeedbackByInterviewId({
@@ -37,32 +36,22 @@ const InterviewCard = async ({
     }
   }
 
-  const isDefenceSession = type === "defence";
+  // For academic defense sessions only
+  const normalizedType = "Academic Defence";
 
-  // For job interviews, normalize the type
-  const normalizedType = isDefenceSession
-    ? "Academic Defence"
-    : /mix/gi.test(type)
-    ? "Mixed"
-    : type;
+  const badgeColor = "bg-accent-400"; // Special color for defence sessions
 
-  const badgeColor = isDefenceSession
-    ? "bg-accent-400" // Special color for defence sessions
-    : {
-        Behavioral: "bg-light-400",
-        Mixed: "bg-light-600",
-        Technical: "bg-light-800",
-      }[normalizedType] || "bg-light-600";
+  // Format date from server value, not client-side calculation
+  let formattedDate = "Recent";
+  if (createdAt) {
+    formattedDate = dayjs(createdAt).format("MMM D, YYYY");
+  } else if (feedback?.createdAt) {
+    formattedDate = dayjs(feedback.createdAt).format("MMM D, YYYY");
+  }
 
-  const formattedDate = dayjs(
-    feedback?.createdAt || createdAt || Date.now()
-  ).format("MMM D, YYYY");
-
-  // Choose appropriate cover image
+  // Generate project cover image
   const coverImage =
-    isDefenceSession && techstack.length > 0
-      ? generateProjectCover(techstack[0])
-      : getRandomInterviewCover();
+    techstack?.length > 0 ? generateProjectCover(techstack[0]) : "/robot.png";
 
   return (
     <div className="card-border w-[360px] max-sm:w-full min-h-96">
@@ -88,11 +77,7 @@ const InterviewCard = async ({
           />
 
           {/* Title */}
-          <h3 className="mt-5 capitalize">
-            {isDefenceSession
-              ? `${role || "Project"} Defence`
-              : `${role} Interview`}
-          </h3>
+          <h3 className="mt-5 capitalize">{`${role || "Project"} Defence`}</h3>
 
           {/* Date & Score */}
           <div className="flex flex-row gap-5 mt-3">
@@ -113,7 +98,7 @@ const InterviewCard = async ({
           </div>
 
           {/* Question Count for Defence Sessions */}
-          {isDefenceSession && displayQuestionCount && (
+          {displayQuestionCount && (
             <div className="flex flex-row gap-2 items-center mt-2">
               <Image src="/file.svg" width={18} height={18} alt="questions" />
               <p className="text-sm text-gray-400">
@@ -125,9 +110,7 @@ const InterviewCard = async ({
           {/* Feedback or Placeholder Text */}
           <p className="line-clamp-2 mt-5">
             {feedback?.finalAssessment ||
-              (isDefenceSession
-                ? "You haven't taken this defence session yet. Start now to get feedback."
-                : "You haven't taken this interview yet. Take it now to improve your skills.")}
+              "You haven't taken this defence session yet. Start now to get feedback."}
           </p>
         </div>
 
@@ -142,11 +125,7 @@ const InterviewCard = async ({
                   : `/interview/${interviewId}`
               }
             >
-              {feedback
-                ? "Check Feedback"
-                : isDefenceSession
-                ? "Start Defence"
-                : "View Interview"}
+              {feedback ? "Check Feedback" : "Start Defence"}
             </Link>
           </Button>
         </div>

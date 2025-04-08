@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import Agent from "@/components/Agent";
-import { getRandomInterviewCover, generateProjectCover } from "@/lib/utils";
+import { generateProjectCover } from "@/lib/utils";
 
 import {
   getFeedbackByInterviewId,
@@ -12,7 +12,7 @@ import {
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import DisplayTechIcons from "@/components/DisplayTechIcons";
 
-const InterviewDetails = async ({ params }: RouteParams) => {
+const DefenceDetails = async ({ params }: RouteParams) => {
   const { id } = await params;
 
   const user = await getCurrentUser();
@@ -21,6 +21,11 @@ const InterviewDetails = async ({ params }: RouteParams) => {
   const interview = await getInterviewById(id);
   if (!interview) redirect("/");
 
+  // Only allow defense sessions
+  if (interview.type !== "defence") {
+    redirect("/");
+  }
+
   const feedback = user.id
     ? await getFeedbackByInterviewId({
         interviewId: id,
@@ -28,15 +33,9 @@ const InterviewDetails = async ({ params }: RouteParams) => {
       })
     : null;
 
-  const isDefenceSession = interview.type === "defence";
-  const coverImage =
-    isDefenceSession && interview.technologiesUsed?.length
-      ? generateProjectCover(interview.technologiesUsed[0])
-      : getRandomInterviewCover();
-
-  const techStack = isDefenceSession
-    ? interview.technologiesUsed || []
-    : interview.techstack;
+  const coverImage = interview.technologiesUsed?.length
+    ? generateProjectCover(interview.technologiesUsed[0])
+    : "/robot.png";
 
   return (
     <>
@@ -51,40 +50,36 @@ const InterviewDetails = async ({ params }: RouteParams) => {
               className="rounded-full object-cover size-[40px]"
             />
             <h3 className="capitalize">
-              {isDefenceSession
-                ? `${interview.projectTitle || "Project"} Defence`
-                : `${interview.role} Interview`}
+              {`${interview.projectTitle || "Project"} Defence`}
             </h3>
           </div>
 
-          <DisplayTechIcons techStack={techStack} />
+          <DisplayTechIcons techStack={interview.technologiesUsed || []} />
         </div>
 
         <p className="bg-dark-200 px-4 py-2 rounded-lg h-fit">
-          {isDefenceSession ? "Academic Defence" : interview.type}
+          Academic Defence
         </p>
       </div>
 
       {/* Display project file link if available */}
-      {isDefenceSession &&
-        interview.projectFile &&
-        interview.projectFile.url && (
-          <div className="my-4 p-4 bg-dark-100 rounded-lg">
-            <p className="text-sm mb-2">Project documentation:</p>
-            <Link
-              href={interview.projectFile.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary-200 hover:underline flex items-center gap-2"
-            >
-              <Image src="/file.svg" alt="file" width={16} height={16} />
-              {interview.projectFile.name}
-            </Link>
-          </div>
-        )}
+      {interview.projectFile && interview.projectFile.url && (
+        <div className="my-4 p-4 bg-dark-100 rounded-lg">
+          <p className="text-sm mb-2">Project documentation:</p>
+          <Link
+            href={interview.projectFile.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-200 hover:underline flex items-center gap-2"
+          >
+            <Image src="/file.svg" alt="file" width={16} height={16} />
+            {interview.projectFile.name}
+          </Link>
+        </div>
+      )}
 
       {/* Display question count for defence sessions */}
-      {isDefenceSession && interview.questionCount && (
+      {interview.questionCount && (
         <div className="my-4 flex items-center gap-2">
           <Image src="/file.svg" alt="questions" width={16} height={16} />
           <p className="text-sm text-gray-400">
@@ -97,22 +92,17 @@ const InterviewDetails = async ({ params }: RouteParams) => {
         userName={user.name}
         userId={user.id}
         interviewId={id}
-        type={isDefenceSession ? "defence" : "interview"}
         questions={interview.questions}
         feedbackId={feedback?.id}
-        projectDetails={
-          isDefenceSession
-            ? {
-                projectTitle: interview.projectTitle,
-                academicLevel: interview.academicLevel,
-                technologiesUsed: interview.technologiesUsed?.join(", "),
-                projectFile: interview.projectFile,
-              }
-            : undefined
-        }
+        projectDetails={{
+          projectTitle: interview.projectTitle,
+          academicLevel: interview.academicLevel,
+          technologiesUsed: interview.technologiesUsed?.join(", "),
+          projectFile: interview.projectFile,
+        }}
       />
     </>
   );
 };
 
-export default InterviewDetails;
+export default DefenceDetails;

@@ -17,23 +17,21 @@ interface Feedback {
 
 interface Interview {
   id: string;
-  role?: string;
-  level?: string;
+  projectTitle: string;
+  academicLevel: string;
+  technologiesUsed: string[];
   questions: string[];
-  techstack: string[];
   createdAt: string;
   userId: string;
-  type: string;
+  type: "defence";
   finalized: boolean;
-  projectTitle?: string;
-  academicLevel?: string;
-  technologiesUsed?: string[];
   focusRatio?: string;
   questionCount?: number;
   projectFile?: {
     name: string;
     type: string;
     url: string;
+    path?: string;
   };
   analysisSummary?: {
     keyComponents: string[];
@@ -79,20 +77,15 @@ interface InterviewCardProps {
 
 interface AgentProps {
   userName: string;
-  userId?: string;
+  userId: string;
   interviewId?: string;
   feedbackId?: string;
-  type: "generate" | "interview" | "defence";
   questions?: string[];
-  projectDetails?: {
-    projectTitle?: string;
-    academicLevel?: string;
-    technologiesUsed?: string;
-    projectFile?: {
-      name: string;
-      type: string;
-      url: string;
-    };
+  projectDetails: {
+    projectTitle: string;
+    academicLevel: string;
+    technologiesUsed: string;
+    projectFile?: ProjectFile;
   };
 }
 

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import ProjectFileUpload from "./ProjectFileUpload";
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { app } from "@/firebase/client";
 
 const projectLevels = ["Bachelor's", "Master's", "PhD"];
 const focusTypes = ["Mostly Theory", "Balanced", "Mostly Implementation"];
@@ -58,7 +59,7 @@ const ProjectDefenceForm = () => {
     }
 
     try {
-      const storage = getStorage();
+      const storage = getStorage(app);
       const timestamp = Date.now();
       const fileName = `projects/${user.id}/${timestamp}_${file.name}`;
       const storageRef = ref(storage, fileName);
@@ -83,6 +84,8 @@ const ProjectDefenceForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Form submitted, validating fields...");
+    console.log("Form data:", formData);
 
     if (!formData.projectTitle || !formData.technologiesUsed) {
       toast.error("Please fill in all required fields");
@@ -96,43 +99,85 @@ const ProjectDefenceForm = () => {
     }
 
     setIsLoading(true);
+    console.log("Starting form submission process...");
 
     try {
       // Handle file upload if there is a file
       let fileData = null;
 
       if (projectFile) {
-        fileData = await uploadFileToStorage(projectFile);
+        console.log("Uploading project file...");
+        try {
+          fileData = await uploadFileToStorage(projectFile);
+          console.log("File uploaded successfully:", fileData);
+        } catch (fileError) {
+          console.error("File upload failed:", fileError);
+          toast.error("Failed to upload file. Continuing without file.");
+          // Continue with submission without file
+        }
       }
+
+      console.log("Sending data to API...");
+      const requestBody = {
+        projectTitle: formData.projectTitle,
+        academicLevel: formData.academicLevel,
+        technologiesUsed: formData.technologiesUsed,
+        focusRatio: formData.focusRatio,
+        questionCount: parseInt(formData.questionCount),
+        userId: user.id,
+        projectFile: fileData,
+      };
+
+      console.log("Request payload:", JSON.stringify(requestBody));
 
       const response = await fetch("/api/vapi/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          isDefence: true,
-          projectTitle: formData.projectTitle,
-          academicLevel: formData.academicLevel,
-          technologiesUsed: formData.technologiesUsed,
-          focusRatio: formData.focusRatio,
-          questionCount: parseInt(formData.questionCount),
-          userId: user.id,
-          projectFile: fileData,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
+      if (!response.ok) {
+        console.error(
+          "API response not OK:",
+          response.status,
+          response.statusText
+        );
+        const errorText = await response.text();
+        console.error("Error response body:", errorText);
+        throw new Error(
+          `API response error: ${response.status} ${response.statusText}`
+        );
+      }
+
       const data = await response.json();
+      console.log("API response:", data);
 
       if (data.success) {
+        console.log(
+          "Defence session created successfully, ID:",
+          data.interviewId
+        );
         toast.success("Defence session created successfully!");
-        router.push(`/interview/${data.interviewId}`);
+
+        // Add small delay before redirect to ensure toast is shown
+        setTimeout(() => {
+          const redirectUrl = `/interview/${data.interviewId}`;
+          console.log("Redirecting to:", redirectUrl);
+          router.push(redirectUrl);
+        }, 500);
       } else {
-        toast.error("Failed to create defence session");
+        console.error("API returned success: false", data);
+        toast.error(data.message || "Failed to create defence session");
       }
     } catch (error) {
       console.error("Error creating defence session:", error);
-      toast.error("An error occurred. Please try again.");
+      let errorMessage = "An error occurred. Please try again.";
+      if (error instanceof Error) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -142,7 +187,7 @@ const ProjectDefenceForm = () => {
     <div className="w-full max-w-3xl mx-auto pt-12 px-4">
       <div className="mb-8 flex flex-col items-center">
         <Image
-          src="/academic/university.png"
+          src="/robot.png"
           width={80}
           height={80}
           alt="Academic Defence"

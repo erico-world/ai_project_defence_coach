@@ -1,4 +1,4 @@
-import { interviewCovers, mappings } from "@/constants";
+import { mappings } from "@/constants";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -41,14 +41,9 @@ export const getTechLogos = async (techArray: string[]) => {
   return results;
 };
 
-export const getRandomInterviewCover = () => {
-  const randomIndex = Math.floor(Math.random() * interviewCovers.length);
-  return `/covers${interviewCovers[randomIndex]}`;
-};
-
 // Project defense covers - used for academic projects
 const projectCovers = [
-  "/academic/university.png",
+  "/robot.png", // Fallback image that exists in the public directory
   "/academic/research.png",
   "/academic/thesis.png",
   "/academic/computer-science.png",
@@ -58,13 +53,13 @@ const projectCovers = [
 export const generateProjectCover = (technology: string): string => {
   // If we have a specific tech-based cover, use that
   const techMap: Record<string, string> = {
-    react: "/academic/web-project.png",
-    python: "/academic/python-project.png",
-    "machine learning": "/academic/ai-project.png",
-    ai: "/academic/ai-project.png",
-    blockchain: "/academic/blockchain-project.png",
-    iot: "/academic/iot-project.png",
-    mobile: "/academic/mobile-project.png",
+    react: "/robot.png", // Use fallback image
+    python: "/robot.png", // Use fallback image
+    "machine learning": "/robot.png", // Use fallback image
+    ai: "/robot.png", // Use fallback image
+    blockchain: "/robot.png", // Use fallback image
+    iot: "/robot.png", // Use fallback image
+    mobile: "/robot.png", // Use fallback image
   };
 
   // Check if we have a specific cover for this technology
@@ -73,7 +68,7 @@ export const generateProjectCover = (technology: string): string => {
     return techMap[techLower];
   }
 
-  // Otherwise, use a random academic cover
+  // Otherwise, use a random academic cover (first item is a fallback)
   const randomIndex = Math.floor(Math.random() * projectCovers.length);
   return projectCovers[randomIndex];
 };
