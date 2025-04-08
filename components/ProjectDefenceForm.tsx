@@ -138,38 +138,63 @@ const ProjectDefenceForm = () => {
         body: JSON.stringify(requestBody),
       });
 
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (error) {
+        // If JSON parsing fails, get the text response
+        const errorText = await response.text();
+        console.error("Failed to parse response as JSON:", errorText);
+        throw new Error(`Invalid response: ${errorText}`);
+      }
+
+      console.log("API response received:", responseData);
+
       if (!response.ok) {
         console.error(
           "API response not OK:",
           response.status,
           response.statusText
         );
-        const errorText = await response.text();
-        console.error("Error response body:", errorText);
         throw new Error(
-          `API response error: ${response.status} ${response.statusText}`
+          `API response error: ${response.status} ${response.statusText} - ${
+            responseData.error || responseData.message || "Unknown error"
+          }`
         );
       }
 
-      const data = await response.json();
-      console.log("API response:", data);
-
-      if (data.success) {
+      if (responseData.success) {
         console.log(
           "Defence session created successfully, ID:",
-          data.interviewId
+          responseData.interviewId
         );
         toast.success("Defence session created successfully!");
 
-        // Add small delay before redirect to ensure toast is shown
-        setTimeout(() => {
-          const redirectUrl = `/interview/${data.interviewId}`;
-          console.log("Redirecting to:", redirectUrl);
-          router.push(redirectUrl);
-        }, 500);
+        // Force a delay to ensure toast is shown
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Make sure we have a valid interview ID
+        if (!responseData.interviewId) {
+          console.error("Missing interviewId in response");
+          throw new Error("Invalid response: missing interview ID");
+        }
+
+        // Redirect to the interview page
+        const redirectUrl = `/interview/${responseData.interviewId}`;
+        console.log("Redirecting to:", redirectUrl);
+
+        // Use router.push with a callback to confirm navigation
+        try {
+          await router.push(redirectUrl);
+          console.log("Navigation successful");
+        } catch (navError: unknown) {
+          console.error("Navigation failed:", navError);
+          // Fallback direct navigation
+          window.location.href = redirectUrl;
+        }
       } else {
-        console.error("API returned success: false", data);
-        toast.error(data.message || "Failed to create defence session");
+        console.error("API returned success: false", responseData);
+        toast.error(responseData.message || "Failed to create defence session");
       }
     } catch (error) {
       console.error("Error creating defence session:", error);

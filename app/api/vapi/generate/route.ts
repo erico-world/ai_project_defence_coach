@@ -4,6 +4,55 @@ import { google } from "@ai-sdk/google";
 import { db } from "@/firebase/admin";
 import { generateProjectCover } from "@/lib/utils";
 
+// Helper function to clean and parse JSON from GPT/Gemini responses
+function cleanAndParseJSON(text: string): string[] {
+  try {
+    // First, try direct parsing
+    return JSON.parse(text);
+  } catch (e) {
+    // If direct parsing fails, try to extract JSON from markdown code blocks
+    try {
+      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (jsonMatch && jsonMatch[1]) {
+        return JSON.parse(jsonMatch[1].trim());
+      }
+    } catch (e) {
+      // If that fails too, do manual cleanup and try again
+      console.log("Trying manual JSON cleanup...");
+    }
+
+    // Last resort: manual cleanup
+    try {
+      // Remove markdown code blocks if present
+      let cleaned = text.replace(/```(?:json)?\s*/g, "").replace(/\s*```/g, "");
+
+      // Remove any non-JSON text before the first '[' and after the last ']'
+      cleaned = cleaned.substring(
+        cleaned.indexOf("["),
+        cleaned.lastIndexOf("]") + 1
+      );
+
+      // Validate that it looks like a JSON array
+      if (!cleaned.startsWith("[") || !cleaned.endsWith("]")) {
+        throw new Error("Could not extract valid JSON array");
+      }
+
+      console.log("Manually cleaned JSON:", cleaned);
+      return JSON.parse(cleaned);
+    } catch (e) {
+      // If all else fails, return a default array with a message
+      console.error("Could not parse JSON after cleaning:", e);
+      return [
+        "Tell me about your project's main objectives and goals.",
+        "What technologies did you use in your project?",
+        "What challenges did you face during development?",
+        "How did you test your implementation?",
+        "What would you improve in future iterations?",
+      ];
+    }
+  }
+}
+
 export async function POST(request: Request) {
   console.log("POST request received to /api/vapi/generate");
 
@@ -32,7 +81,7 @@ export async function POST(request: Request) {
 
     console.log("Generating defense questions with Gemini...");
     // Generate defence questions
-    const { text: questions } = await generateText({
+    const { text: questionsText } = await generateText({
       model: google("gemini-2.0-flash-001"),
       prompt: `
         Generate tailored mock defense questions by analyzing the user's project information and contextual academic requirements.  
@@ -63,10 +112,20 @@ export async function POST(request: Request) {
 
         3. Prioritize question categories using ${focusRatio}  
         4. Ensure 40% of questions challenge the project's academic rigor/validation methods  
-        5. Format as JSON array without special characters: ["Q1", "Q2", "Q3"]
+        5. Format as a simple JSON array of strings: ["Q1", "Q2", "Q3"]
+
+        Respond ONLY with the JSON array, no other explanation text.
       `,
     });
-    console.log("Questions generated successfully");
+
+    console.log(
+      "Raw questions response:",
+      questionsText.substring(0, 100) + "..."
+    );
+
+    // Parse the questions using our helper function to handle different formats
+    const questions = cleanAndParseJSON(questionsText);
+    console.log("Parsed questions:", questions);
 
     // Parse the technologies
     const keyTechnologies = technologiesUsed
@@ -92,7 +151,7 @@ export async function POST(request: Request) {
         identifiedStrengths: [],
         potentialGaps: [],
       },
-      questions: JSON.parse(questions),
+      questions: questions,
       questionCount: questionCount,
       userId: userId,
       finalized: true,
@@ -113,8 +172,13 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("Error in API route:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return Response.json(
-      { success: false, error: String(error) },
+      {
+        success: false,
+        error: errorMessage,
+        message: "Failed to create defence session.",
+      },
       { status: 500 }
     );
   }
